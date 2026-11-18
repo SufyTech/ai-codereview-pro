@@ -1,18 +1,7 @@
 import { Review } from "../types";
+import { OutcomeBadge, RiskBadge } from "./Badges";
+import DiffView from "./DiffView";
 
-const riskTone = (r: string) => {
-  const v = String(r ?? "").toLowerCase();
-  if (v === "high" || v === "critical") return "text-brand";
-  if (v === "medium") return "text-warn";
-  if (v === "low") return "text-ok";
-  return "text-mute";
-};
-const statusLabel: Record<string, string> = {
-  new: "New",
-  processing: "Processing",
-  resolved: "AI reviewed",
-  escalated: "Escalated",
-};
 const fmt = (s: string) => {
   const d = new Date(s);
   return isNaN(d.getTime())
@@ -27,78 +16,79 @@ export default function ReviewList({
   reviews: Review[];
   loading: boolean;
 }) {
-  const sorted = [...reviews].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
   return (
-    <section id="review-list">
-      <div className="flex items-end justify-between gap-4 border-b border-ink pb-3">
-        <div>
-          <p className="label">History</p>
-          <h2 className="mt-1 font-serif text-3xl sm:text-4xl">Reviews</h2>
-        </div>
-        <span className="font-mono text-xs text-mute">
-          {loading ? "loading…" : `${sorted.length} total`}
+    <section aria-labelledby="reviews-heading">
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 id="reviews-heading" className="text-lg font-semibold">
+          Reviews
+        </h2>
+        <span className="text-sm text-muted">
+          {loading ? "Loading" : `${reviews.length} total`}
         </span>
       </div>
 
-      {!loading && sorted.length === 0 && (
-        <p className="py-10 text-sm text-mute">
-          No reviews yet. Open “New review” and submit a diff.
-        </p>
-      )}
+      <div className="card mt-3 overflow-hidden">
+        {!loading && reviews.length === 0 && (
+          <p className="px-5 py-10 text-center text-sm text-muted">
+            No reviews yet. Open <b className="font-semibold">New review</b>,
+            pick an example and run it.
+          </p>
+        )}
 
-      <ul>
-        {sorted.map((r) => (
-          <li key={r.id} className="border-b border-rule">
-            <details className="group">
-              <summary className="grid cursor-pointer list-none grid-cols-1 gap-2 py-4 sm:grid-cols-12 sm:items-center sm:gap-4 [&::-webkit-details-marker]:hidden">
-                <div className="min-w-0 sm:col-span-6">
-                  <p className="truncate font-medium group-open:text-brand">
-                    {r.pr_title}
-                  </p>
-                  <p className="mt-0.5 font-mono text-[11px] text-mute">
-                    {r.id} · {fmt(r.createdAt)}
-                  </p>
-                </div>
-                <p className="text-sm text-ink2 sm:col-span-2">
-                  {r.change_type || "–"}
-                </p>
-                <div className="flex gap-2 sm:col-span-4 sm:justify-end">
-                  <span className={`tag ${riskTone(r.risk_level)}`}>
-                    {r.risk_level}
-                  </span>
-                  <span
-                    className={`tag ${r.status === "escalated" ? "text-brand" : "text-ink2"}`}
-                  >
-                    {statusLabel[r.status] ?? r.status}
-                  </span>
-                </div>
-              </summary>
-              <div className="space-y-5 pb-6 sm:pl-0">
-                {r.code_diff && (
-                  <pre className="max-h-72 overflow-auto border border-rule bg-card p-4 font-mono text-[12px] leading-6">
-                    {r.code_diff}
-                  </pre>
-                )}
-                {r.history && r.history.length > 0 && (
-                  <ol className="space-y-2 border-l border-rule pl-4">
-                    {r.history.map((h, i) => (
-                      <li key={i} className="text-sm">
-                        <span className="font-mono text-[11px] text-mute">
-                          {h.actor} · {fmt(h.timestamp)}
-                        </span>
-                        <br />
-                        {h.message}
-                      </li>
-                    ))}
-                  </ol>
-                )}
-              </div>
-            </details>
-          </li>
-        ))}
-      </ul>
+        <ul className="divide-y divide-line">
+          {reviews.map((r) => {
+            const comment = r.reviewComment ?? r.review_comment ?? r.comment;
+            return (
+              <li key={r.id}>
+                <details className="group">
+                  <summary className="flex cursor-pointer list-none flex-col gap-2 px-4 py-3 hover:bg-band sm:flex-row sm:items-center sm:justify-between sm:gap-4 [&::-webkit-details-marker]:hidden">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{r.pr_title}</p>
+                      <p className="text-[13px] text-muted">
+                        {r.change_type || "Unclassified"}
+                        {fmt(r.createdAt) ? `, ${fmt(r.createdAt)}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                      <RiskBadge level={r.risk_level} />
+                      <OutcomeBadge status={r.status} escalated={r.needs_human_review} />
+                    </div>
+                  </summary>
+
+                  <div className="space-y-4 border-t border-line bg-band px-4 py-4">
+                    {r.code_diff && (
+                      <DiffView diff={r.code_diff} className="max-h-72" />
+                    )}
+                    {comment && (
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                        {comment}
+                      </p>
+                    )}
+                    {r.history && r.history.length > 0 && (
+                      <ol className="space-y-2 border-l-2 border-line pl-4">
+                        {r.history.map((h, i) => (
+                          <li key={i} className="text-sm">
+                            <span className="text-[13px] text-muted">
+                              {h.actor}, {fmt(h.timestamp)}
+                            </span>
+                            <br />
+                            {h.message}
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                    {!r.code_diff && !comment && !(r.history?.length) && (
+                      <p className="text-sm text-muted">
+                        No further detail was stored for this review.
+                      </p>
+                    )}
+                  </div>
+                </details>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </section>
   );
 }

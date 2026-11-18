@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
+import Notice from "./Notice";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -28,7 +29,7 @@ export default function Login() {
 
   const forgot = async () => {
     if (!email) {
-      setError('Enter your email above first, then click "Forgot password?"');
+      setError('Enter your email first, then select "Forgot password".');
       return;
     }
     setError(null);
@@ -43,44 +44,55 @@ export default function Login() {
   };
 
   return (
-    <div className="panel w-full max-w-sm p-6 sm:p-8">
-      <p className="label">codereview/pro</p>
-      <h2 className="mt-2 font-serif text-4xl leading-tight">
+    <div className="card w-full max-w-sm p-6 shadow-sm sm:p-8">
+      <h2 id="login-title" className="text-xl font-semibold">
         {isSignUp ? "Create an account" : "Sign in"}
       </h2>
-      <div className="mt-6 grid grid-cols-2 gap-3">
+      <p className="mt-1 text-sm text-muted">
+        An account is optional. The app works without one.
+      </p>
+
+      <div className="mt-5 grid grid-cols-2 gap-3">
         <button
           type="button"
-          className="btn-ghost"
+          className="btn-secondary"
           onClick={() => oauth("google")}
         >
           Google
         </button>
         <button
           type="button"
-          className="btn-ghost"
+          className="btn-secondary"
           onClick={() => oauth("github")}
         >
           GitHub
         </button>
       </div>
-      <p className="label my-5 text-center">or with email</p>
+
+      <p className="my-4 text-center text-sm text-muted">or use email</p>
+
       <form onSubmit={submit} className="space-y-4">
-        <label className="block">
-          <span className="label">Email</span>
+        <div>
+          <label htmlFor="login-email" className="field-label">
+            Email
+          </label>
           <input
-            className="field mt-2"
+            id="login-email"
+            className="field mt-1.5"
             type="email"
             required
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-        </label>
-        <label className="block">
-          <span className="label">Password</span>
-          <div className="relative mt-2">
+        </div>
+        <div>
+          <label htmlFor="login-password" className="field-label">
+            Password
+          </label>
+          <div className="relative mt-1.5">
             <input
+              id="login-password"
               className="field pr-16"
               type={show ? "text" : "password"}
               required
@@ -92,47 +104,39 @@ export default function Login() {
             <button
               type="button"
               onClick={() => setShow((s) => !s)}
-              className="absolute inset-y-0 right-3 font-mono text-[11px] uppercase text-mute hover:text-ink"
+              className="absolute inset-y-0 right-3 text-sm font-medium text-muted hover:text-ink"
             >
-              {show ? "hide" : "show"}
+              {show ? "Hide" : "Show"}
             </button>
           </div>
-        </label>
-        {error && (
-          <p
-            role="alert"
-            className="border border-brand bg-brand/5 px-3 py-2 text-sm text-brand"
-          >
-            {error}
-          </p>
-        )}
-        {resetSent && (
-          <p className="border border-ok px-3 py-2 text-sm text-ok">
-            Reset link sent. Check your inbox.
-          </p>
-        )}
+        </div>
+
+        {error && <Notice>{error}</Notice>}
+        {resetSent && <Notice tone="info">Reset link sent. Check your inbox.</Notice>}
+
         <button className="btn w-full" disabled={loading}>
-          {loading ? "Please wait…" : isSignUp ? "Create account" : "Sign in"}
+          {loading ? "Please wait" : isSignUp ? "Create account" : "Sign in"}
         </button>
       </form>
-      <div className="mt-5 flex justify-between font-mono text-xs">
+
+      <div className="mt-4 flex justify-between gap-3 text-sm">
         <button
           type="button"
-          className="underline-offset-4 hover:underline"
+          className="font-medium underline-offset-4 hover:underline"
           onClick={() => {
             setIsSignUp((v) => !v);
             setError(null);
           }}
         >
-          {isSignUp ? "Have an account? Sign in" : "New here? Sign up"}
+          {isSignUp ? "Have an account? Sign in" : "New here? Create an account"}
         </button>
         {!isSignUp && (
           <button
             type="button"
-            className="text-mute underline-offset-4 hover:underline"
+            className="text-muted underline-offset-4 hover:underline"
             onClick={forgot}
           >
-            Forgot password?
+            Forgot password
           </button>
         )}
       </div>

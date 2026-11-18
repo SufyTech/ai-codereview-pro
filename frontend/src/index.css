@@ -1,56 +1,149 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Instrument Serif", Georgia, serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --color-paper: #efebe2;
-  --color-card: #f7f4ee;
-  --color-ink: #16140f;
-  --color-ink2: #3a362e;
-  --color-mute: #6b655a;
-  --color-rule: #cfc8b8;
-  --color-brand: #c8401a;
-  --color-ok: #3d6b3a;
-  --color-warn: #9a6a12;
-
-  /* legacy names so ResetPassword.tsx still renders in the new palette */
-  --font-display: "Instrument Serif", Georgia, serif;
-  --color-void: #efebe2;
-  --color-surface: #f7f4ee;
-  --color-surface-alt: #f7f4ee;
-  --color-accent: #c8401a;
-  --color-primary: #16140f;
-  --color-success: #3d6b3a;
-  --color-border: #cfc8b8;
-  --color-border-soft: #cfc8b8;
-  --color-text-primary: #16140f;
-  --color-text-secondary: #3a362e;
-  --color-text-muted: #6b655a;
+  --color-paper: #ffffff;
+  --color-band: #f4f6f9;
+  --color-ink: #14202b;
+  --color-muted: #52606f;
+  --color-line: #d9dfe7;
+  --color-accent: #2b59c3;
+  --color-accent-soft: #e8eefb;
+  --color-high: #b3261e;
+  --color-high-soft: #fdebea;
+  --color-med: #8f5600;
+  --color-med-soft: #fdf1dc;
+  --color-ok: #1e7a46;
+  --color-ok-soft: #e7f5ec;
 }
 
 @layer base {
-  html { scroll-behavior: smooth; }
-  body { background: #efebe2; color: #16140f; font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
-  ::selection { background: #c8401a; color: #efebe2; }
-  :focus-visible { outline: 2px solid #c8401a; outline-offset: 2px; }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.6;
+  }
+  ::selection {
+    background: var(--color-accent-soft);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
 }
 
 @layer components {
-  .container-x { width: 100%; max-width: 72rem; margin-inline: auto; padding-inline: 1.25rem; }
-  @media (min-width: 640px) { .container-x { padding-inline: 2rem; } }
-  @media (min-width: 1024px) { .container-x { padding-inline: 3rem; } }
+  .container-x {
+    width: 100%;
+    max-width: 68rem;
+    margin-inline: auto;
+    padding-inline: 1.25rem;
+  }
+  @media (min-width: 640px) {
+    .container-x {
+      padding-inline: 2rem;
+    }
+  }
 
-  .label { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .14em; color: #6b655a; }
-  .btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; background: #16140f; color: #efebe2; padding: .7rem 1.25rem; font-family: var(--font-mono); font-size: .8125rem; transition: background .15s; }
-  .btn:hover:not(:disabled) { background: #c8401a; }
-  .btn:disabled { opacity: .5; cursor: not-allowed; }
-  .btn-ghost { display: inline-flex; align-items: center; justify-content: center; border: 1px solid #16140f; padding: .7rem 1.25rem; font-family: var(--font-mono); font-size: .8125rem; transition: background .15s, color .15s; }
-  .btn-ghost:hover:not(:disabled) { background: #16140f; color: #efebe2; }
-  .field { width: 100%; border: 1px solid #16140f; background: #f7f4ee; padding: .65rem .8rem; font-size: .9rem; }
-  .field::placeholder { color: #8d867a; }
-  .field:focus { border-color: #c8401a; outline: none; }
-  .panel { border: 1px solid #16140f; background: #f7f4ee; }
-  .tag { display: inline-block; border: 1px solid currentColor; padding: .1rem .5rem; font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 6px;
+    border: 1px solid var(--color-ink);
+    background: var(--color-ink);
+    color: #fff;
+    padding: 0.55rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.4;
+    transition: background-color 0.12s;
+  }
+  .btn:hover:not(:disabled) {
+    background: #2a3b4c;
+  }
+  .btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 6px;
+    border: 1px solid var(--color-line);
+    background: var(--color-paper);
+    color: var(--color-ink);
+    padding: 0.55rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.4;
+    transition: background-color 0.12s, border-color 0.12s;
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--color-band);
+    border-color: #b9c2cd;
+  }
+  .btn-secondary:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .btn-sm {
+    padding: 0.3rem 0.65rem;
+    font-size: 0.8125rem;
+  }
+
+  .field {
+    width: 100%;
+    border-radius: 6px;
+    border: 1px solid #b9c2cd;
+    background: var(--color-paper);
+    padding: 0.55rem 0.75rem;
+    font-size: 0.9375rem;
+  }
+  .field::placeholder {
+    color: #7b8794;
+  }
+  .field:focus {
+    border-color: var(--color-accent);
+    outline: 2px solid var(--color-accent-soft);
+    outline-offset: 0;
+  }
+
+  .card {
+    border: 1px solid var(--color-line);
+    border-radius: 8px;
+    background: var(--color-paper);
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 4px;
+    padding: 0.05rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+  }
+
+  .field-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
 }

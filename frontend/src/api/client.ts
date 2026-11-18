@@ -1,46 +1,79 @@
-// src/api/client.ts
-import { Review, ReviewStats } from "../types.ts";
+import { RagAnswer, Review, ReviewStats } from "../types.ts";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
-/**
- * Backend Requirements:
- * 1. Ensure CORS is enabled for your frontend origin (e.g., http://localhost:5173).
- * 2. GET /api/reviews -> Review[]
- * 3. GET /api/reviews/stats -> ReviewStats
- * 4. POST /api/reviews -> { pr_title, code_diff } -> Review
- */
-
-export async function getReviews(): Promise<Review[]> {
-  const response = await fetch(`${API_BASE_URL}/api/reviews`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch reviews (status: ${response.status})`);
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
   }
-  return response.json();
 }
 
-export async function getReviewStats(): Promise<ReviewStats> {
-  const response = await fetch(`${API_BASE_URL}/api/reviews/stats`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch stats (status: ${response.status})`);
+async function readDetail(res: Response): Promise<string | undefined> {
+  try {
+    const body = await res.json();
+    if (typeof body?.detail === "string") return body.detail;
+  } catch {
+    /* body was not JSON */
   }
-  return response.json();
+  return undefined;
 }
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, init);
+  } catch {
+    throw new ApiError(
+      "Can't reach the backend. It runs on free hosting and sleeps when idle, so wait about a minute and try again.",
+      0,
+    );
+  }
+  if (!res.ok) {
+    const detail = await readDetail(res);
+    throw new ApiError(
+      detail ?? `The backend returned an error (status ${res.status}).`,
+      res.status,
+    );
+  }
+  return res.json() as Promise<T>;
+}
+
+export const getReviews = () => request<Review[]>("/api/reviews");
+
+export const getReviewStats = () => request<ReviewStats>("/api/reviews/stats");
 
 export async function createReview(payload: {
   pr_title: string;
   code_diff: string;
 }): Promise<Review> {
-  const response = await fetch(`${API_BASE_URL}/api/reviews`, {
+  try {
+    return await request<Review>("/api/reviews", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      // The backend returns 503 when the AI call fails, instead of a made-up review.
+      throw new ApiError(
+        "The AI model did not respond, or the server is still waking up. Nothing was faked. Try again in a minute.",
+        503,
+      );
+    }
+    throw err;
+  }
+}
+
+export async function askKnowledgeBase(question: string): Promise<RagAnswer> {
+  const data = await request<RagAnswer>("/api/rag/ask", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ question }),
   });
-
-  if (!response.ok) {
-    throw new Error(`Failed to create review (status: ${response.status})`);
-  }
-
-  // Returns the full review object, including change_type, risk_level, status, reviewComment
-  return response.json();
+  if (data.error) throw new ApiError(data.error, 200);
+  return data;
 }

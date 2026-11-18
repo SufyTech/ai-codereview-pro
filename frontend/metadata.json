@@ -1,6 +1,6 @@
 {
-  "name": "AI Support Pro",
-  "description": "An AI-powered support platform with multi-agent coordination, automated triage, and context-aware replies.",
+  "name": "CodeReview Pro",
+  "description": "Multi-agent pull request reviewer that rates risk, reviews every change, and escalates risky ones to a human.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

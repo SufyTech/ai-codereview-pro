@@ -1,24 +1,8 @@
-import { useEffect, useState } from "react";
-import axios from "axios";
-
-const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
-
-interface Stats {
-  totalReviews: number;
-  escalated: number;
-  normal: number;
-  agents_frequency?: Record<string, number>;
-  change_types?: Record<string, number>;
-  risk_levels?: Record<string, number>;
-}
-interface Row {
-  id: string;
-  pr_title: string;
-  change_type: string;
-  risk_level: string;
-  assigned_reviewer?: string;
-  agents_run?: string[];
-}
+import { useCallback, useEffect, useState } from "react";
+import { getReviews, getReviewStats } from "../api/client";
+import { Review, ReviewStats } from "../types";
+import { RiskBadge } from "./Badges";
+import Notice from "./Notice";
 
 const clean = (s: string) => s.replace("_agent", "").replace(/_/g, " ");
 
@@ -32,21 +16,21 @@ function Bars({
   const entries = Object.entries(data ?? {});
   const max = Math.max(1, ...entries.map(([, v]) => v));
   return (
-    <div>
-      <p className="label border-b border-ink pb-2">{title}</p>
+    <div className="card p-4">
+      <h3 className="text-sm font-semibold">{title}</h3>
       {entries.length === 0 ? (
-        <p className="py-4 text-sm text-mute">No data yet.</p>
+        <p className="mt-3 text-sm text-muted">No data yet.</p>
       ) : (
         <ul className="mt-3 space-y-3">
           {entries.map(([k, v]) => (
             <li key={k}>
-              <div className="flex justify-between text-sm">
-                <span>{clean(k)}</span>
-                <span className="font-mono">{v}</span>
+              <div className="flex justify-between gap-3 text-sm">
+                <span className="capitalize">{clean(k)}</span>
+                <span className="font-mono text-[13px]">{v}</span>
               </div>
-              <div className="mt-1 h-2 bg-rule">
+              <div className="mt-1 h-1.5 rounded-full bg-band">
                 <div
-                  className="h-2 bg-ink"
+                  className="h-1.5 rounded-full bg-ink"
                   style={{ width: `${(v / max) * 100}%` }}
                 />
               </div>
@@ -59,112 +43,124 @@ function Bars({
 }
 
 export default function ObservabilityDashboard() {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [rows, setRows] = useState<Row[]>([]);
+  const [stats, setStats] = useState<ReviewStats | null>(null);
+  const [rows, setRows] = useState<Review[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let live = true;
-    const load = async () => {
-      try {
-        const [s, r] = await Promise.all([
-          axios.get(`${API}/api/reviews/stats`),
-          axios.get(`${API}/api/reviews`),
-        ]);
-        if (!live) return;
-        setStats(s.data);
-        setRows(Array.isArray(r.data) ? r.data : []);
-        setError(null);
-      } catch {
-        if (live)
-          setError(
-            "Cannot reach the backend. The free Render instance may be waking up.",
-          );
-      } finally {
-        if (live) setLoading(false);
-      }
-    };
-    load();
-    const t = setInterval(load, 10000);
-    return () => {
-      live = false;
-      clearInterval(t);
-    };
+  const load = useCallback(async () => {
+    try {
+      const [s, r] = await Promise.all([getReviewStats(), getReviews()]);
+      setStats(s);
+      setRows(Array.isArray(r) ? r : []);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not load analytics.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  if (loading) return <p className="font-mono text-sm text-mute">Loading…</p>;
-  if (error)
-    return (
-      <p
-        role="alert"
-        className="border border-brand bg-brand/5 px-3 py-2 text-sm text-brand"
-      >
-        {error}
-      </p>
-    );
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 10000);
+    return () => clearInterval(t);
+  }, [load]);
+
+  if (loading) return <p className="text-sm text-muted">Loading analytics</p>;
 
   const total = stats?.totalReviews ?? 0;
   const esc = stats?.escalated ?? 0;
   const rate = total ? Math.round((esc / total) * 100) : 0;
 
   return (
-    <div className="space-y-12">
-      <dl className="grid grid-cols-2 border-y border-rule sm:grid-cols-3">
-        {[
-          ["Reviews", total],
-          ["Escalated", esc],
-          ["Escalation rate", `${rate}%`],
-        ].map(([k, v], i) => (
-          <div
-            key={String(k)}
-            className={`py-5 sm:py-6 ${i % 2 ? "border-l border-rule pl-4 sm:pl-8" : ""} ${i === 2 ? "sm:border-l sm:pl-8" : ""}`}
-          >
-            <dt className="label">{k}</dt>
-            <dd className="mt-1 font-serif text-4xl sm:text-5xl">{v}</dd>
-          </div>
-        ))}
-      </dl>
-      <div className="grid gap-10 md:grid-cols-3">
-        <Bars title="Agent runs" data={stats?.agents_frequency} />
-        <Bars title="Change types" data={stats?.change_types} />
-        <Bars title="Risk levels" data={stats?.risk_levels} />
-      </div>
-      <div>
-        <p className="label border-b border-ink pb-2">
-          Agent flow per review · refreshes every 10 s
-        </p>
-        {rows.length === 0 ? (
-          <p className="py-6 text-sm text-mute">No reviews yet.</p>
-        ) : (
-          <ul>
-            {rows.map((r) => (
-              <li key={r.id} className="border-b border-rule py-4">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="font-medium">{r.pr_title}</p>
-                  <span className="font-mono text-[11px] text-mute">
-                    {r.id} · {r.change_type} · {r.risk_level}
-                  </span>
-                </div>
-                <p className="mt-2 font-mono text-xs leading-6 text-ink2">
-                  {(r.agents_run ?? []).map((a, i, arr) => (
-                    <span
-                      key={i}
-                      className={/escalation|human/.test(a) ? "text-brand" : ""}
-                    >
-                      {clean(a)}
-                      {i < arr.length - 1 ? " → " : ""}
-                    </span>
-                  ))}
-                  {r.assigned_reviewer ? (
-                    <span className="text-mute"> · {r.assigned_reviewer}</span>
-                  ) : null}
-                </p>
-              </li>
+    <div className="space-y-6">
+      {error && (
+        <Notice
+          title="Analytics could not be loaded"
+          actionLabel="Retry"
+          onAction={load}
+        >
+          {error}
+        </Notice>
+      )}
+
+      {stats && (
+        <>
+          <dl className="grid grid-cols-3 divide-x divide-line rounded-lg border border-line">
+            {(
+              [
+                ["Reviews", total],
+                ["Escalated", esc],
+                ["Escalation rate", `${rate}%`],
+              ] as const
+            ).map(([k, v]) => (
+              <div key={k} className="px-4 py-4">
+                <dt className="text-sm text-muted">{k}</dt>
+                <dd className="mt-0.5 text-2xl font-semibold sm:text-3xl">
+                  {v}
+                </dd>
+              </div>
             ))}
-          </ul>
-        )}
-      </div>
+          </dl>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <Bars title="Agent runs" data={stats.agents_frequency} />
+            <Bars title="Change types" data={stats.change_types} />
+            <Bars title="Risk levels" data={stats.risk_levels} />
+          </div>
+
+          <section aria-labelledby="flow-heading">
+            <div className="flex items-baseline justify-between gap-4">
+              <h3 id="flow-heading" className="text-lg font-semibold">
+                Agent flow per review
+              </h3>
+              <span className="text-sm text-muted">Updates every 10 seconds</span>
+            </div>
+            <div className="card mt-3">
+              {rows.length === 0 ? (
+                <p className="px-5 py-8 text-center text-sm text-muted">
+                  No reviews yet. Run one from the New review tab.
+                </p>
+              ) : (
+                <ul className="divide-y divide-line">
+                  {rows.map((r) => (
+                    <li key={r.id} className="px-4 py-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="font-medium">{r.pr_title}</p>
+                        <RiskBadge level={r.risk_level} />
+                      </div>
+                      <ol className="mt-2 flex flex-wrap items-center gap-1.5 font-mono text-xs">
+                        {(r.agents_run ?? []).map((a, i) => (
+                          <li
+                            key={i}
+                            className="flex items-center gap-1.5 after:text-muted after:content-['›'] last:after:content-['']"
+                          >
+                            <span
+                              className={`rounded border px-1.5 py-0.5 ${
+                                /escalation|human/.test(a)
+                                  ? "border-accent/40 bg-accent-soft text-accent"
+                                  : "border-line"
+                              }`}
+                            >
+                              {clean(a)}
+                            </span>
+                          </li>
+                        ))}
+                        {r.assigned_reviewer && (
+                          <li className="ml-1 text-muted">
+                            Assigned to {r.assigned_reviewer}
+                          </li>
+                        )}
+                      </ol>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
+        </>
+      )}
     </div>
   );
 }

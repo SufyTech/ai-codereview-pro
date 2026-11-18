@@ -1,9 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "motion/react";
-import { Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import { fadeInUp, viewportConfig } from "../lib/motionPresets.ts";
+import Notice from "../components/Notice";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -67,77 +65,56 @@ export default function ResetPassword() {
   };
 
   return (
-    <motion.div
-      variants={fadeInUp}
-      initial="hidden"
-      whileInView="visible"
-      viewport={viewportConfig}
-      className="bg-gradient-card backdrop-blur-sm border border-border-soft rounded-2xl p-6 sm:p-8 w-full max-w-sm mx-4 sm:mx-auto shadow-2xl"
-    >
+    <div className="card w-full max-w-sm p-6 shadow-sm sm:p-8">
       {done ? (
-        <div className="text-center">
-          <div className="w-12 h-12 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent mx-auto mb-4">
-            <CheckCircle2 className="w-6 h-6" />
-          </div>
-          <h2 className="text-lg sm:text-xl font-bold text-text-primary mb-1">
-            Password updated
-          </h2>
-          <p className="text-sm text-text-muted">
-            You can now sign in with your new password. Redirecting…
+        <div>
+          <h1 className="text-xl font-semibold">Password updated</h1>
+          <p className="mt-1 text-sm text-muted">
+            You can now sign in with the new password. Redirecting to the app.
           </p>
         </div>
       ) : (
         <>
-          <h2 className="text-lg sm:text-xl font-bold text-text-primary mb-1 text-center">
-            Set a new password
-          </h2>
-          <p className="text-sm text-text-muted mb-6 text-center">
-            Choose a password with at least 6 characters.
+          <h1 className="text-xl font-semibold">Set a new password</h1>
+          <p className="mt-1 text-sm text-muted">
+            Use at least 6 characters.
+            {!ready && !error && " Checking your reset link."}
           </p>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                autoComplete="new-password"
-                required
-                minLength={6}
-                placeholder="New password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-surface/50 border border-border-soft rounded-lg px-4 py-2.5 pr-10 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/20 transition-all"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                {showPassword ? (
-                  <EyeOff className="w-4 h-4" />
-                ) : (
-                  <Eye className="w-4 h-4" />
-                )}
-              </button>
+          <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+            <div>
+              <label htmlFor="new-password" className="field-label">
+                New password
+              </label>
+              <div className="relative mt-1.5">
+                <input
+                  id="new-password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="field pr-16"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-3 text-sm font-medium text-muted hover:text-ink"
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
             </div>
 
-            {error && (
-              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-                <p className="text-xs text-red-400">{error}</p>
-              </div>
-            )}
+            {error && <Notice>{error}</Notice>}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 bg-accent text-white rounded-lg px-4 py-2.5 text-sm font-semibold hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
-            >
-              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              Update password
+            <button type="submit" disabled={loading} className="btn w-full">
+              {loading ? "Updating" : "Update password"}
             </button>
           </form>
         </>
       )}
-    </motion.div>
+    </div>
   );
 }

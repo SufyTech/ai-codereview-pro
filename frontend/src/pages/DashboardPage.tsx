@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import ReviewList from "../components/ReviewList.tsx";
 import AIDispatcher from "../components/AIDispatcher.tsx";
 import KnowledgeSearch from "../components/KnowledgeSearch.tsx";
 import ObservabilityDashboard from "../components/ObservabilityDashboard.tsx";
+import Notice from "../components/Notice.tsx";
 import { useReviews } from "../hooks/useReviews.ts";
-import { Review } from "../types.ts";
+import { REPO_URL } from "../config.ts";
 import { supabase } from "../lib/supabase";
 
 type View = "overview" | "new-review" | "analytics";
@@ -14,20 +16,33 @@ const tabs: { id: View; label: string }[] = [
   { id: "analytics", label: "Analytics" },
 ];
 
+const titles: Record<View, { title: string; blurb: string }> = {
+  overview: {
+    title: "Overview",
+    blurb: "Every review the backend has stored, newest first.",
+  },
+  "new-review": {
+    title: "New review",
+    blurb: "Paste a diff and see how the agents handle it.",
+  },
+  analytics: {
+    title: "Analytics",
+    blurb: "How reviews were classified and which agents ran.",
+  },
+};
+
 export default function DashboardPage() {
   const [view, setView] = useState<View>("overview");
   const [confirmOut, setConfirmOut] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
-  const { reviews, loading, setReviews } = useReviews();
+  const { reviews, loading, error, refresh, addReview } = useReviews();
 
   useEffect(() => {
     supabase.auth
-      .getUser()
-      .then(({ data }) => setEmail(data.user?.email ?? null));
+      .getSession()
+      .then(({ data }) => setEmail(data.session?.user?.email ?? null));
   }, []);
-
-  const onCreated = (r: Review) => setReviews((prev) => [r, ...prev]);
 
   const signOut = async () => {
     setSigningOut(true);
@@ -37,28 +52,43 @@ export default function DashboardPage() {
   };
 
   const total = reviews.length;
-  const escalated = reviews.filter((r) => r.status === "escalated").length;
+  const escalated = reviews.filter((r) => r.needs_human_review).length;
   const high = reviews.filter((r) =>
     ["high", "critical"].includes(String(r.risk_level).toLowerCase()),
   ).length;
 
+  const head = titles[view];
+
   return (
-    <div className="min-h-screen bg-paper">
-      <header className="sticky top-0 z-30 border-b border-rule bg-paper/95 backdrop-blur">
+    <div className="min-h-screen bg-band">
+      <header className="sticky top-0 z-30 border-b border-line bg-paper">
         <div className="container-x flex h-14 items-center justify-between gap-4">
-          <span className="font-mono text-sm">
-            codereview<span className="text-brand">/</span>pro
-          </span>
-          <div className="flex min-w-0 items-center gap-4">
-            <span className="hidden truncate font-mono text-xs text-mute sm:block max-w-[16rem]">
-              {email ?? "signed in"}
-            </span>
-            <button
-              onClick={() => setConfirmOut(true)}
-              className="font-mono text-xs underline-offset-4 hover:underline"
+          <Link to="/" className="flex items-center gap-2 font-semibold">
+            <img src="/favicon.svg" alt="" className="h-6 w-6" />
+            CodeReview Pro
+          </Link>
+          <div className="flex min-w-0 items-center gap-4 text-sm">
+            <a
+              href={REPO_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="hidden font-medium text-muted underline-offset-4 hover:text-ink hover:underline sm:inline"
             >
-              sign out
-            </button>
+              Source
+            </a>
+            {email && (
+              <>
+                <span className="hidden max-w-[14rem] truncate text-muted md:block">
+                  {email}
+                </span>
+                <button
+                  onClick={() => setConfirmOut(true)}
+                  className="font-medium underline-offset-4 hover:underline"
+                >
+                  Sign out
+                </button>
+              </>
+            )}
           </div>
         </div>
         <nav
@@ -69,10 +99,11 @@ export default function DashboardPage() {
             <button
               key={t.id}
               onClick={() => setView(t.id)}
-              className={`whitespace-nowrap border-b-2 py-3 font-mono text-xs uppercase tracking-[0.1em] transition-colors ${
+              aria-current={view === t.id ? "page" : undefined}
+              className={`whitespace-nowrap border-b-2 py-2.5 text-sm font-semibold transition-colors ${
                 view === t.id
-                  ? "border-brand text-ink"
-                  : "border-transparent text-mute hover:text-ink"
+                  ? "border-ink text-ink"
+                  : "border-transparent text-muted hover:text-ink"
               }`}
             >
               {t.label}
@@ -81,87 +112,77 @@ export default function DashboardPage() {
         </nav>
       </header>
 
-      <div className="container-x py-8 sm:py-12 lg:py-14">
-        {view === "overview" && (
-          <div className="space-y-12 sm:space-y-16">
-            <div>
-              <p className="label">Workspace</p>
-              <h1 className="mt-2 font-serif text-4xl leading-tight sm:text-5xl">
-                Overview
-              </h1>
-              <dl className="mt-8 grid grid-cols-3 border-y border-rule">
-                {[
-                  ["Reviews", total],
-                  ["Escalated", escalated],
-                  ["High risk", high],
-                ].map(([k, v], i) => (
-                  <div
-                    key={String(k)}
-                    className={`py-5 sm:py-6 ${i > 0 ? "border-l border-rule pl-4 sm:pl-8" : ""}`}
-                  >
-                    <dt className="label">{k}</dt>
-                    <dd className="mt-1 font-serif text-4xl sm:text-5xl">
+      <div className="container-x py-8 sm:py-10">
+        <h1 className="text-2xl font-semibold sm:text-3xl">{head.title}</h1>
+        <p className="mt-1 text-muted">{head.blurb}</p>
+
+        <div className="mt-7">
+          {view === "overview" && (
+            <div className="space-y-8">
+              {error && (
+                <Notice
+                  title="Reviews could not be loaded"
+                  actionLabel="Retry"
+                  onAction={refresh}
+                >
+                  {error}
+                </Notice>
+              )}
+
+              <dl className="grid grid-cols-3 divide-x divide-line rounded-lg border border-line bg-paper">
+                {(
+                  [
+                    ["Reviews", total],
+                    ["Escalated", escalated],
+                    ["High risk", high],
+                  ] as const
+                ).map(([k, v]) => (
+                  <div key={k} className="px-4 py-4">
+                    <dt className="text-sm text-muted">{k}</dt>
+                    <dd className="mt-0.5 text-2xl font-semibold sm:text-3xl">
                       {loading ? "–" : v}
                     </dd>
                   </div>
                 ))}
               </dl>
+
+              <KnowledgeSearch />
+              <ReviewList reviews={reviews} loading={loading} />
             </div>
-            <KnowledgeSearch />
-            <ReviewList reviews={reviews} loading={loading} />
-          </div>
-        )}
-        {view === "new-review" && (
-          <div>
-            <p className="label">Dispatcher</p>
-            <h1 className="mt-2 font-serif text-4xl leading-tight sm:text-5xl">
-              New review
-            </h1>
-            <div className="mt-8 sm:mt-10">
-              <AIDispatcher onReviewCreated={onCreated} />
-            </div>
-          </div>
-        )}
-        {view === "analytics" && (
-          <div>
-            <p className="label">Observability</p>
-            <h1 className="mt-2 font-serif text-4xl leading-tight sm:text-5xl">
-              Analytics
-            </h1>
-            <div className="mt-8 sm:mt-10">
-              <ObservabilityDashboard />
-            </div>
-          </div>
-        )}
+          )}
+          {view === "new-review" && <AIDispatcher onReviewCreated={addReview} />}
+          {view === "analytics" && <ObservabilityDashboard />}
+        </div>
       </div>
 
       {confirmOut && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4"
           onClick={() => !signingOut && setConfirmOut(false)}
         >
           <div
-            className="panel w-full max-w-sm p-6 sm:p-8"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="signout-title"
+            className="card w-full max-w-sm p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="font-serif text-3xl">Sign out?</h2>
-            <p className="mt-2 text-sm text-ink2">
-              You will need to sign in again to reach the dashboard.
+            <h2 id="signout-title" className="text-lg font-semibold">
+              Sign out?
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              You can keep using the app without an account.
             </p>
-            <div className="mt-6 flex gap-3">
+            <div className="mt-5 flex gap-3">
               <button
-                className="btn-ghost flex-1"
+                className="btn-secondary flex-1"
                 disabled={signingOut}
                 onClick={() => setConfirmOut(false)}
               >
                 Cancel
               </button>
-              <button
-                className="btn flex-1"
-                disabled={signingOut}
-                onClick={signOut}
-              >
-                {signingOut ? "Signing out…" : "Sign out"}
+              <button className="btn flex-1" disabled={signingOut} onClick={signOut}>
+                {signingOut ? "Signing out" : "Sign out"}
               </button>
             </div>
           </div>

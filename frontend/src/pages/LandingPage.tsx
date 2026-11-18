@@ -1,394 +1,387 @@
-// Drop-in replacement for src/pages/LandingPage.tsx
-// Self-contained: no motion lib, no icons, no theme tokens. Every claim here is backed by the repo.
 import { ReactNode } from "react";
-
-// Update after you rename the repo.
-const REPO = "https://github.com/SufyTech/ai-codereview-pro";
+import { Link } from "react-router-dom";
+import { PROFILE_URL, REPO_URL } from "../config.ts";
 
 interface LandingPageProps {
-  reviews?: unknown[];
-  reviewsLoading?: boolean;
-  handleReviewCreated?: (r: any) => void;
-  onGetStarted: () => void;
+  onSignIn: () => void;
 }
 
-const serif = { fontFamily: "'Instrument Serif', Georgia, serif" };
-const mono = { fontFamily: "'IBM Plex Mono', ui-monospace, monospace" };
-const rule = "border-[#cfc8b8]";
+/* ---------- content (every claim here is backed by the repo) ---------- */
 
-const Label = ({ children }: { children: ReactNode }) => (
-  <p
-    style={mono}
-    className="text-[11px] uppercase tracking-[0.14em] text-[#6b655a]"
-  >
-    {children}
-  </p>
-);
+const runs = [
+  { name: "First run, before fixes", caught: 17, esc: "n/a", file: "" },
+  { name: "After fixes, run 1", caught: 19, esc: "13 of 19", file: "results_v3.csv" },
+  { name: "After fixes, run 2", caught: 19, esc: "13 of 19", file: "results_run4.csv" },
+  { name: "After fixes, run 3", caught: 19, esc: "13 of 19", file: "results_run5.csv" },
+];
+
+const broke = [
+  {
+    title: "The model was shut down and nothing complained",
+    body: "Groq retired llama-3.1-8b-instant. Every review silently fell back to a fake “medium risk” answer, and the dashboard still looked healthy. I found it by checking whether the AI had really run. The API now returns HTTP 503 when the AI call fails.",
+  },
+  {
+    title: "Risky pull requests got the laziest review",
+    body: "High-risk changes skipped the detailed review and got a one-line comment. Tuning the prompt did not fix it, so I changed the graph: every change is reviewed first, then risky ones are escalated.",
+  },
+  {
+    title: "A library version broke retrieval in production",
+    body: "Render installed qdrant-client 1.7.3, which has no query_points. Local tests passed and the live site failed. I caught it by testing the deployed app, then switched to the search call that version supports.",
+  },
+];
+
+const limits = [
+  "I wrote the 20 test bugs myself and tuned on the same set. 19 of 19 is a regression check, not a benchmark. Next step: real open-source pull requests.",
+  "Three runs only. The clean pull request still gets “Request changes” on nitpicks every time.",
+  "On the payment pull request the risk line names the bug, but the long notes discuss a different issue.",
+  "One of the 13 escalations (the migration change) is triggered by a keyword rule, not by the model.",
+  "Reviews live in SQLite on Render’s free disk and disappear on redeploy. Next step: PostgreSQL.",
+  "There is no GitHub integration yet. You paste a diff, and nothing is posted on a pull request.",
+  "The demo needs no account, and submitted diffs are stored on the server. Don’t paste private code.",
+];
+
+const stack: [string, string][] = [
+  ["Agents", "LangGraph on Groq: gpt-oss-120b for triage and review, gpt-oss-20b for retrieval answers"],
+  ["Retrieval", "Qdrant Cloud with fastembed (all-MiniLM-L6-v2) over a small demo knowledge base"],
+  ["Backend", "FastAPI on Render, review history in SQLite"],
+  ["Frontend", "React, TypeScript, Vite and Tailwind on Vercel, optional Supabase sign-in"],
+  ["Tests", "15 pytest tests for escalation rules and the API, plus a GitHub Actions workflow"],
+];
+
+const diffLines: { n: number; kind: "ctx" | "add" | "del"; text: string }[] = [
+  { n: 41, kind: "ctx", text: "def store_password(user, pw):" },
+  { n: 42, kind: "del", text: "    hashed = bcrypt.hashpw(pw.encode(), bcrypt.gensalt())" },
+  { n: 42, kind: "add", text: "    hashed = hashlib.md5(pw.encode()).hexdigest()" },
+  { n: 43, kind: "ctx", text: "    db.save(user, hashed)" },
+];
+
+/* ---------- small pieces ---------- */
 
 const Section = ({
   id,
-  n,
   title,
+  lead,
+  tone = "paper",
   children,
 }: {
   id: string;
-  n: string;
   title: string;
+  lead?: string;
+  tone?: "paper" | "band";
   children: ReactNode;
 }) => (
-  <section id={id} className={`border-t ${rule} py-14 sm:py-20 lg:py-28`}>
-    <div className="container-x grid gap-8 md:grid-cols-12 md:gap-10 lg:gap-14">
-      <div className="md:col-span-3">
-        <Label>§ {n}</Label>
-        <h2 style={serif} className="mt-3 text-4xl md:text-5xl leading-[1.05]">
-          {title}
-        </h2>
+  <section
+    id={id}
+    className={`scroll-mt-4 border-t border-line py-14 sm:py-20 ${tone === "band" ? "bg-band" : "bg-paper"}`}
+  >
+    <div className="container-x grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-12">
+      <div className="lg:col-span-4">
+        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{title}</h2>
+        {lead && <p className="mt-3 max-w-sm text-muted">{lead}</p>}
       </div>
-      <div className="md:col-span-8 md:col-start-5">{children}</div>
+      <div className="min-w-0 lg:col-span-8">{children}</div>
     </div>
   </section>
 );
 
-const runs = [
-  { name: "Run 1 (before fixes)", caught: 17, esc: "n/a" },
-  { name: "Run 3 · results_v3", caught: 19, esc: "13/19" },
-  { name: "Run 4 · results_run4", caught: 19, esc: "13/19" },
-  { name: "Run 5 · results_run5", caught: 19, esc: "13/19" },
-];
-
-const broke = [
-  [
-    "The model was shut down and nothing complained.",
-    "Groq retired llama-3.1-8b-instant. Every review silently fell back to a fake \u201cmedium risk\u201d answer and the dashboard still looked healthy. I found it by checking whether the AI had really run. Now the API returns HTTP 503 when the AI fails.",
-  ],
-  [
-    "Risky PRs got the laziest review.",
-    "High-risk changes skipped the detailed review and got a one-line comment. Prompt tuning alone did not fix it, so I changed the graph: every PR is reviewed first, then risky ones are escalated.",
-  ],
-  [
-    "A library version broke RAG in production.",
-    "Render installed qdrant-client 1.7.3, which has no query_points. Local tests passed; the live site failed. I caught it by testing the deployed app, then pinned the working search call.",
-  ],
-];
-
-const limits = [
-  "I wrote the 20 test bugs myself and tuned on the same set. 19/19 is a regression check, not a benchmark. Next step: real open-source PRs.",
-  "Three runs only. The clean PR still gets \u201cRequest Changes\u201d on nitpicks every time.",
-  "On the payment PR the risk line names the bug but the long notes discuss a different issue.",
-  "One of the 13 escalations (the migration PR) is triggered by a keyword rule, not by the model.",
-  "Reviews live in SQLite on Render\u2019s free disk and disappear on redeploy. Next step: PostgreSQL.",
-  "No GitHub integration yet. You paste a diff; nothing is posted on a PR.",
-];
-
-export default function LandingPage({ onGetStarted }: LandingPageProps) {
+function ReviewExample() {
   return (
-    <div
-      className="relative z-10 min-h-screen bg-[#efebe2] text-[#16140f]"
-      style={{ fontFamily: "'IBM Plex Sans', system-ui, sans-serif" }}
-    >
-      <header className={`border-b ${rule}`}>
-        <div className="container-x flex h-14 items-center justify-between">
-          <span style={mono} className="text-sm">
-            codereview<span className="text-[#c8401a]">/</span>pro
-          </span>
+    <figure>
+      <div className="card overflow-hidden shadow-sm">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 border-b border-line bg-band px-4 py-2.5">
+          <span className="text-sm font-semibold">Speed up password hashing</span>
+          <span className="font-mono text-xs text-muted">auth/passwords.py</span>
+        </div>
+
+        <div className="overflow-x-auto py-2 font-mono text-[12.5px] leading-6">
+          <div className="min-w-max">
+            {diffLines.map((l, i) => (
+              <div
+                key={i}
+                className={`grid grid-cols-[2.75rem_1.25rem_1fr] border-l-2 pr-4 ${
+                  l.kind === "add"
+                    ? "border-ok bg-ok-soft"
+                    : l.kind === "del"
+                      ? "border-high bg-high-soft"
+                      : "border-transparent"
+                }`}
+              >
+                <span className="select-none pr-2 text-right text-muted">{l.n}</span>
+                <span className="select-none text-muted">
+                  {l.kind === "add" ? "+" : l.kind === "del" ? "-" : ""}
+                </span>
+                <span className="whitespace-pre">{l.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mx-4 mb-4 rounded-md border border-line bg-paper">
+          <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2">
+            <span className="text-sm font-semibold">AI review</span>
+            <span className="badge bg-high-soft text-high">High risk</span>
+            <span className="badge bg-band text-muted">Request changes</span>
+          </div>
+          <p className="px-3 py-2.5 text-sm leading-relaxed">
+            Replaces bcrypt with unsalted MD5 for stored passwords. MD5 is fast
+            to brute-force and has known collisions. Keep bcrypt, or move to
+            argon2.
+          </p>
+          <p className="rounded-b-md bg-accent-soft px-3 py-2 text-sm font-medium text-accent">
+            Flagged for a human reviewer: auth change.
+          </p>
+        </div>
+      </div>
+      <figcaption className="mt-2.5 text-sm text-muted">
+        Example output, written by hand to show the format. The app produces
+        real reviews like this from any diff you paste.
+      </figcaption>
+    </figure>
+  );
+}
+
+function Pipeline() {
+  const box = { fill: "#ffffff", stroke: "#14202b", strokeWidth: 1.2, rx: 6 };
+  return (
+    <div className="overflow-x-auto">
+      <svg
+        viewBox="0 0 900 260"
+        className="min-w-[700px] w-full"
+        role="img"
+        aria-label="Pipeline: a pasted diff goes to a triage agent, then a full review. The result is either escalated to a human or marked AI reviewed. If the AI call fails, the API returns HTTP 503."
+      >
+        <g {...box}>
+          <rect x="6" y="104" width="150" height="58" />
+          <rect x="196" y="104" width="160" height="58" />
+          <rect x="396" y="104" width="160" height="58" />
+        </g>
+        <rect x="620" y="30" width="274" height="68" rx="6" fill="#e8eefb" stroke="#2b59c3" strokeWidth="1.2" />
+        <rect x="620" y="168" width="274" height="68" rx="6" fill="#ffffff" stroke="#14202b" strokeWidth="1.2" />
+        <path
+          d="M156 133H196M356 133H396M556 133H588V64H620M556 133H588V202H620"
+          fill="none"
+          stroke="#14202b"
+          strokeWidth="1.2"
+        />
+        <path
+          d="M476 162V250H276"
+          fill="none"
+          stroke="#b3261e"
+          strokeWidth="1.2"
+          strokeDasharray="4 4"
+        />
+        <g fontFamily="Hanken Grotesk, system-ui, sans-serif" fontSize="15" fontWeight="600" fill="#14202b">
+          <text x="81" y="129" textAnchor="middle">Diff in</text>
+          <text x="276" y="129" textAnchor="middle">Triage agent</text>
+          <text x="476" y="129" textAnchor="middle">Full AI review</text>
+          <text x="757" y="62" textAnchor="middle" fill="#2b59c3">Escalated to a human</text>
+          <text x="757" y="200" textAnchor="middle">AI reviewed, not escalated</text>
+        </g>
+        <g fontFamily="Hanken Grotesk, system-ui, sans-serif" fontSize="12.5" fill="#52606f">
+          <text x="81" y="148" textAnchor="middle">pasted pull request</text>
+          <text x="276" y="148" textAnchor="middle">rates risk and change type</text>
+          <text x="476" y="148" textAnchor="middle">every change, always</text>
+          <text x="757" y="81" textAnchor="middle">auth, payments, secrets, migrations</text>
+          <text x="757" y="219" textAnchor="middle">the verdict is advice, never approval</text>
+          <text x="268" y="246" textAnchor="end" fill="#b3261e">
+            If the AI call fails the API returns HTTP 503, never a fake answer
+          </text>
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+/* ---------- page ---------- */
+
+export default function LandingPage({ onSignIn }: LandingPageProps) {
+  return (
+    <div className="min-h-screen bg-paper">
+      <header className="border-b border-line">
+        <div className="container-x flex h-14 items-center justify-between gap-4">
+          <a href="#top" className="flex items-center gap-2 whitespace-nowrap font-semibold">
+            <img src="/favicon.svg" alt="" className="h-6 w-6" />
+            CodeReview Pro
+          </a>
           <nav
-            style={mono}
-            className="flex items-center gap-4 sm:gap-6 md:gap-8 text-xs"
+            className="flex items-center gap-4 text-sm font-medium sm:gap-6"
+            aria-label="Page sections"
           >
-            <a
-              href="#results"
-              className="hidden md:inline hover:underline underline-offset-4"
-            >
-              results
+            <a href="#results" className="hidden text-muted hover:text-ink md:inline">
+              Results
             </a>
-            <a
-              href="#pipeline"
-              className="hidden md:inline hover:underline underline-offset-4"
-            >
-              pipeline
+            <a href="#pipeline" className="hidden text-muted hover:text-ink md:inline">
+              How it works
             </a>
-            <a
-              href="#limits"
-              className="hidden md:inline hover:underline underline-offset-4"
-            >
-              limits
+            <a href="#limits" className="hidden text-muted hover:text-ink md:inline">
+              Limitations
             </a>
-            <a
-              href={REPO}
-              target="_blank"
-              rel="noreferrer"
-              className="hover:underline underline-offset-4"
-            >
-              source
+            <a href={REPO_URL} target="_blank" rel="noreferrer" className="hidden text-muted hover:text-ink sm:inline">
+              Source
             </a>
-            <button
-              onClick={onGetStarted}
-              className="bg-[#16140f] text-[#efebe2] px-3 py-1.5 hover:bg-[#c8401a] transition-colors"
-            >
-              sign in
+            <button onClick={onSignIn} className="hidden text-muted hover:text-ink sm:inline">
+              Sign in
             </button>
+            <Link to="/dashboard" className="btn btn-sm whitespace-nowrap">
+              Open the app
+            </Link>
           </nav>
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="pt-12 sm:pt-20 lg:pt-28 pb-14 sm:pb-20 lg:pb-28">
-        <div className="container-x grid gap-10 lg:grid-cols-12 lg:gap-14">
-          <div className="lg:col-span-7">
-            <Label>Multi-agent pull-request review · portfolio project</Label>
-            <h1
-              style={serif}
-              className="mt-5 text-[clamp(2.5rem,7vw,5rem)] leading-[0.98] tracking-[-0.01em]"
-            >
-              A code reviewer that knows when to stop and{" "}
-              <em className="text-[#c8401a]">ask a human.</em>
+      <div id="top" />
+      <section className="py-12 sm:py-16 lg:py-20">
+        <div className="container-x grid grid-cols-1 items-center gap-10 lg:grid-cols-12 lg:gap-12">
+          <div className="lg:col-span-5">
+            <h1 className="text-[clamp(2rem,4.6vw,3.35rem)] font-bold leading-[1.08] tracking-[-0.025em]">
+              AI code review that hands risky changes to a person
             </h1>
-            <p className="mt-7 max-w-xl text-lg leading-relaxed text-[#3a362e]">
+            <p className="mt-5 max-w-md text-lg leading-relaxed text-muted">
               Paste a diff. A triage agent rates the risk, every change gets a
-              full AI review, and anything touching auth, payments, secrets or
-              migrations is flagged for a person. The AI never approves.
+              full review, and anything touching auth, payments, secrets or
+              migrations is flagged for a human. The AI never approves.
             </p>
-            <div className="mt-9 flex flex-wrap gap-4" style={mono}>
-              <button
-                onClick={onGetStarted}
-                className="bg-[#16140f] text-[#efebe2] px-5 py-3 text-sm hover:bg-[#c8401a] transition-colors"
-              >
-                Open the live app →
-              </button>
-              <a
-                href={REPO}
-                target="_blank"
-                rel="noreferrer"
-                className={`border ${rule} border-[#16140f] px-5 py-3 text-sm hover:bg-[#16140f] hover:text-[#efebe2] transition-colors`}
-              >
-                Read the code
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link to="/dashboard" className="btn">
+                Open the app
+              </Link>
+              <a href={REPO_URL} target="_blank" rel="noreferrer" className="btn-secondary">
+                Read the source
               </a>
             </div>
-            <p style={mono} className="mt-5 text-xs text-[#6b655a]">
-              Free hosting: the first request after a quiet spell can take up to
-              60 s.
+            <p className="mt-4 max-w-md text-sm text-muted">
+              No account needed. The backend runs on free hosting, so the first
+              request after a quiet spell can take up to 60 seconds.
             </p>
           </div>
 
-          <div className="lg:col-span-5">
-            <Label>
-              Exhibit A — illustrative, written by hand to show the format
-            </Label>
-            <div className="mt-3 border border-[#16140f] bg-[#f7f4ee]">
-              <div
-                style={mono}
-                className="px-4 py-2 border-b border-[#16140f] text-xs flex justify-between"
-              >
-                <span>PR: Speed up password hashing</span>
-                <span>auth/passwords.py</span>
-              </div>
-              <pre
-                style={mono}
-                className="px-4 py-3 text-[12px] leading-6 overflow-x-auto"
-              >
-                <span className="text-[#6b655a]"> def store_password(pw):</span>
-                {"\n"}
-                <span className="bg-[#f1d3c8] block">
-                  - hashed = bcrypt.hashpw(pw.encode(), bcrypt.gensalt())
-                </span>
-                <span className="bg-[#d5e3cf] block">
-                  + hashed = hashlib.md5(pw.encode()).hexdigest()
-                </span>
-                <span className="text-[#6b655a]"> db.save(user, hashed)</span>
-              </pre>
-              <div className="border-t border-[#16140f] px-4 py-3 text-sm leading-relaxed">
-                <p
-                  style={mono}
-                  className="text-[11px] uppercase tracking-[0.14em] text-[#c8401a]"
-                >
-                  Risk: high · Request changes
-                </p>
-                <p className="mt-1">
-                  Replaces bcrypt with unsalted MD5 for stored passwords. MD5 is
-                  fast to brute-force and has known collisions.
-                </p>
-                <p style={mono} className="mt-2 text-xs text-[#6b655a]">
-                  → Escalated to human reviewer (auth change)
-                </p>
-              </div>
-            </div>
+          <div className="min-w-0 lg:col-span-7">
+            <ReviewExample />
           </div>
         </div>
       </section>
 
-      <Section id="results" n="1" title="Does it actually work?">
-        <p className="text-lg leading-relaxed text-[#3a362e] max-w-2xl">
-          I built a 20-PR test set: 19 diffs with one planted bug each, and 1
-          clean diff. The first run caught 17 of 19. After fixing the causes
-          below, it caught 19 of 19 in three separate runs.
+      <Section
+        id="results"
+        title="Test results"
+        lead="Measured on a set of 20 pull requests I built to check the pipeline."
+      >
+        <p className="max-w-2xl text-lg leading-relaxed">
+          19 of the diffs each have one planted bug, and 1 is clean. The first
+          run caught 17 of 19. After the fixes described below, three more runs
+          caught 19 of 19.
         </p>
-        <div style={mono} className={`mt-8 border-t border-[#16140f] text-sm`}>
-          <div
-            className={`grid grid-cols-12 py-2 border-b ${rule} text-[11px] uppercase tracking-[0.12em] text-[#6b655a]`}
-          >
-            <span className="col-span-5">Run</span>
-            <span className="col-span-5">Bugs caught</span>
-            <span className="col-span-2 text-right">Escalated</span>
-          </div>
-          {runs.map((r) => (
-            <div
-              key={r.name}
-              className={`grid grid-cols-12 items-center py-3 border-b ${rule}`}
-            >
-              <span className="col-span-5 text-xs">{r.name}</span>
-              <span className="col-span-5 flex items-center gap-2">
-                <span className="flex gap-[2px]" aria-hidden>
-                  {Array.from({ length: 19 }).map((_, i) => (
-                    <i
-                      key={i}
-                      className={`block w-[6px] h-4 ${i < r.caught ? "bg-[#16140f]" : "border border-[#16140f]"}`}
-                    />
-                  ))}
-                </span>
-                <b className="font-medium">{r.caught}/19</b>
-              </span>
-              <span className="col-span-2 text-right">{r.esc}</span>
+
+        <div className="mt-8 overflow-x-auto rounded-lg border border-line">
+          <table className="w-full min-w-[34rem] text-left text-sm">
+            <thead className="border-b border-line bg-band text-muted">
+              <tr>
+                <th scope="col" className="px-4 py-2.5 font-semibold">Run</th>
+                <th scope="col" className="px-4 py-2.5 font-semibold">Bugs caught</th>
+                <th scope="col" className="px-4 py-2.5 font-semibold">Escalated</th>
+                <th scope="col" className="px-4 py-2.5 font-semibold">Raw results</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {runs.map((r) => (
+                <tr key={r.name}>
+                  <th scope="row" className="px-4 py-3 font-medium">{r.name}</th>
+                  <td className="px-4 py-3">
+                    <span className="flex items-center gap-3">
+                      <span className="flex gap-[3px]" aria-hidden>
+                        {Array.from({ length: 19 }).map((_, i) => (
+                          <i
+                            key={i}
+                            className={`block h-4 w-[6px] rounded-[1px] ${
+                              i < r.caught ? "bg-ink" : "border border-ink"
+                            }`}
+                          />
+                        ))}
+                      </span>
+                      <span className="font-semibold">{r.caught} of 19</span>
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">{r.esc}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-muted">{r.file || "–"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <p className="mt-3 max-w-2xl text-sm text-muted">
+          Each bar is one planted bug. The clean pull request was never
+          escalated. The backend has 15 pytest tests. Read the scores as a
+          regression check, not a benchmark; the limitations below say why.
+        </p>
+      </Section>
+
+      <Section
+        id="pipeline"
+        tone="band"
+        title="How a diff moves through it"
+        lead="Every change takes the same path. Triage decides whether a person also has to look."
+      >
+        <Pipeline />
+
+        <dl className="mt-8 divide-y divide-line border-y border-line text-sm">
+          {stack.map(([k, v]) => (
+            <div key={k} className="grid gap-1 py-3 sm:grid-cols-[8rem_1fr] sm:gap-4">
+              <dt className="font-semibold">{k}</dt>
+              <dd className="text-muted">{v}</dd>
             </div>
           ))}
-        </div>
-        <p style={mono} className="mt-3 text-xs text-[#6b655a]">
-          Each bar is one planted bug; order is not PR order. The clean PR was
-          never escalated. Backend: 15 pytest tests, CI on every push.
-        </p>
+        </dl>
       </Section>
 
-      <Section id="pipeline" n="2" title="How a diff moves through it">
-        <div className="overflow-x-auto">
-          <svg
-            viewBox="0 0 900 250"
-            className="min-w-[680px] w-full"
-            role="img"
-            aria-label="Pipeline: diff, triage, full review, then escalate to a human or mark AI-reviewed"
-          >
-            <g fill="#f7f4ee" stroke="#16140f" strokeWidth="1.2">
-              <rect x="10" y="102" width="150" height="56" />
-              <rect x="200" y="102" width="150" height="56" />
-              <rect x="390" y="102" width="150" height="56" />
-              <rect x="610" y="36" width="280" height="64" />
-              <rect x="610" y="160" width="280" height="64" />
-            </g>
-            <g fill="none" stroke="#16140f" strokeWidth="1.2">
-              <path d="M160 130H200M350 130H390M540 130H575V68H610M540 130H575V192H610" />
-            </g>
-            <path
-              d="M465 158V226H300"
-              fill="none"
-              stroke="#c8401a"
-              strokeWidth="1.2"
-              strokeDasharray="4 4"
-            />
-            <g
-              fontFamily="IBM Plex Sans, sans-serif"
-              fontSize="15"
-              fill="#16140f"
-            >
-              <text x="85" y="126" textAnchor="middle">
-                Diff in
-              </text>
-              <text x="275" y="126" textAnchor="middle">
-                Triage agent
-              </text>
-              <text x="465" y="126" textAnchor="middle">
-                Full AI review
-              </text>
-              <text x="750" y="64" textAnchor="middle">
-                Escalate to a human
-              </text>
-              <text x="750" y="188" textAnchor="middle">
-                AI-reviewed, not escalated
-              </text>
-            </g>
-            <g
-              fontFamily="IBM Plex Mono, monospace"
-              fontSize="11"
-              fill="#6b655a"
-            >
-              <text x="85" y="144" textAnchor="middle">
-                pasted PR
-              </text>
-              <text x="275" y="144" textAnchor="middle">
-                rates the risk
-              </text>
-              <text x="465" y="144" textAnchor="middle">
-                every PR, always
-              </text>
-              <text x="750" y="82" textAnchor="middle">
-                auth · payments · secrets · migrations
-              </text>
-              <text x="750" y="206" textAnchor="middle">
-                verdict is advice, never approval
-              </text>
-              <text x="290" y="244" fill="#c8401a" textAnchor="end">
-                AI call fails → HTTP 503, never a fake answer
-              </text>
-            </g>
-          </svg>
-        </div>
-        <p className="mt-6 max-w-2xl text-[#3a362e] leading-relaxed">
-          Agents run on Groq (gpt-oss-120b; gpt-oss-20b for retrieval). Backend
-          is FastAPI on Render, retrieval uses Qdrant with fastembed
-          (all-MiniLM-L6-v2), the frontend is React + TypeScript on Vercel.
-        </p>
-      </Section>
-
-      <Section id="broke" n="3" title="Things that broke">
-        <ol className="space-y-8">
-          {broke.map(([t, d], i) => (
-            <li key={t} className="grid grid-cols-[2.2rem_1fr]">
-              <span style={mono} className="text-sm text-[#c8401a] pt-1">
-                0{i + 1}
-              </span>
-              <div>
-                <h3 style={serif} className="text-2xl leading-tight">
-                  {t}
-                </h3>
-                <p className="mt-2 text-[#3a362e] leading-relaxed">{d}</p>
-              </div>
-            </li>
+      <Section
+        id="broke"
+        title="Problems I hit and fixed"
+        lead="Three failures from building and deploying this, and how I found each one."
+      >
+        <div className="divide-y divide-line border-y border-line">
+          {broke.map((b) => (
+            <article key={b.title} className="py-6">
+              <h3 className="text-lg font-semibold leading-snug">{b.title}</h3>
+              <p className="mt-2 max-w-2xl leading-relaxed text-muted">{b.body}</p>
+            </article>
           ))}
-        </ol>
+        </div>
       </Section>
 
-      <Section id="limits" n="4" title="Known limitations">
-        <ul className="space-y-3">
+      <Section
+        id="limits"
+        tone="band"
+        title="Known limitations"
+        lead="What this project does not do, and what I would change next."
+      >
+        <ul className="max-w-2xl space-y-3">
           {limits.map((l) => (
-            <li
-              key={l}
-              className={`pb-3 border-b ${rule} text-[#3a362e] leading-relaxed`}
-            >
-              {l}
+            <li key={l} className="flex gap-3 leading-relaxed">
+              <span className="mt-[0.7em] h-1.5 w-1.5 shrink-0 rounded-full bg-ink" aria-hidden />
+              <span>{l}</span>
             </li>
           ))}
         </ul>
       </Section>
 
-      <footer className={`border-t border-[#16140f] py-10`}>
-        <div
-          style={mono}
-          className="container-x flex flex-wrap justify-between gap-4 text-xs"
-        >
-          <span>Built by Sufiyan Khan · open source</span>
-          <span className="flex gap-6">
-            <a
-              href={REPO}
-              target="_blank"
-              rel="noreferrer"
-              className="hover:underline underline-offset-4"
-            >
-              GitHub
+      <footer className="border-t border-line bg-paper py-10">
+        <div className="container-x flex flex-wrap items-center justify-between gap-4 text-sm">
+          <p className="text-muted">
+            Built by{" "}
+            <a href={PROFILE_URL} target="_blank" rel="noreferrer" className="font-semibold text-ink underline-offset-4 hover:underline">
+              Sufiyan Khan
             </a>
-            <button
-              onClick={onGetStarted}
-              className="hover:underline underline-offset-4"
-            >
-              Live app
-            </button>
-          </span>
+            . Open source.
+          </p>
+          <div className="flex gap-5 font-medium">
+            <a href={REPO_URL} target="_blank" rel="noreferrer" className="hover:underline underline-offset-4">
+              Repository
+            </a>
+            <Link to="/dashboard" className="hover:underline underline-offset-4">
+              Open the app
+            </Link>
+          </div>
         </div>
       </footer>
     </div>

@@ -23,3 +23,7 @@ backend/reviews.db
 backend/.venv/
 backend/.env
 test-prs/results.csv
+
+frontend-ui.zip
+
+frontend-ui.zip
